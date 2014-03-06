@@ -1,0 +1,8 @@
+[
+  {
+  	"url": "http://nonexisting.example.com/",
+  	"classpath": "helloworld.html",
+  	"Content-Type": "text/html"
+  }
+]
+
