@@ -1,6 +1,6 @@
 package uk.org.taverna.httpclient.jarcache;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
@@ -21,7 +21,7 @@ public class TestJarCache {
 		
 		HttpResponse resp = httpClient.execute(get);		
 		
-//		assertEquals("text/html", resp.getEntity().getContentType().getValue());
+		assertEquals("text/html", resp.getEntity().getContentType().getValue());
 		String str = IOUtils.toString(resp.getEntity().getContent(), "UTF-8");
 		assertTrue(str.contains("Hello World"));
 	}

@@ -1,13 +1,17 @@
 package uk.org.taverna.httpclient.jarcache;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.List;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.cache.HeaderConstants;
@@ -17,7 +21,6 @@ import org.apache.http.client.cache.HttpCacheUpdateCallback;
 import org.apache.http.client.cache.HttpCacheUpdateException;
 import org.apache.http.client.cache.Resource;
 import org.apache.http.impl.client.cache.CacheConfig;
-import org.apache.http.impl.client.cache.HeapResource;
 import org.apache.http.impl.cookie.DateUtils;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicStatusLine;
@@ -28,6 +31,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class JarCacheStorage implements HttpCacheStorage {
 
+	private final Log log = LogFactory.getLog(getClass());
+	
 	private CacheConfig cacheConfig = new CacheConfig();
 	private ClassLoader classLoader;
 
@@ -42,25 +47,27 @@ public class JarCacheStorage implements HttpCacheStorage {
 		cacheConfig.setMaxUpdateRetries(0);
 		cacheConfig.getMaxCacheEntries();
 	}
-	
+
 	@Override
 	public void putEntry(String key, HttpCacheEntry entry) throws IOException {
 		// ignored
 
 	}
+
 	ObjectMapper mapper = new ObjectMapper();
 
 	@Override
 	public HttpCacheEntry getEntry(String key) throws IOException {
-		System.out.println("Requesting " + key);
+		log.trace("Requesting " + key);
 		URI requestedUri;
 		try {
 			requestedUri = new URI(key);
 		} catch (URISyntaxException e) {
 			return null;
 		}
-		if ( (requestedUri.getScheme().equals("http") && requestedUri.getPort() == 80) ||
-				(requestedUri.getScheme().equals("https") && requestedUri.getPort() == 443) ) {
+		if ((requestedUri.getScheme().equals("http") && requestedUri.getPort() == 80)
+				|| (requestedUri.getScheme().equals("https") && requestedUri
+						.getPort() == 443)) {
 			// Strip away default http ports
 			try {
 				requestedUri = new URI(requestedUri.getScheme(),
@@ -69,49 +76,47 @@ public class JarCacheStorage implements HttpCacheStorage {
 			} catch (URISyntaxException e) {
 			}
 		}
-		
+
 		Enumeration<URL> jarcaches = classLoader.getResources("jarcache.json");
 		while (jarcaches.hasMoreElements()) {
 			URL url = jarcaches.nextElement();
 			JsonNode tree = mapper.readTree(url);
 			// TODO: Cache tree per URL
 			for (JsonNode node : tree) {
-				URI uri = URI.create(node.get("url").asText());
+				URI uri = URI.create(node.get("Content-Location").asText());
 				if (uri.equals(requestedUri)) {
-					final URL classpath = new URL(url, node.get("classpath").asText());
-					System.out.println("Found it!");
-					System.out.println(node);
-					
+					final URL classpath = new URL(url, node.get("X-Classpath")
+							.asText());
+					log.debug("Cache hit for " + requestedUri);
+					log.trace(node);
 
-			        Header[] responseHeaders = new Header[] {
-			        		new BasicHeader(HTTP.DATE_HEADER, DateUtils.formatDate(new Date())),
-			        	new BasicHeader(HeaderConstants.CACHE_CONTROL, HeaderConstants.CACHE_CONTROL_MAX_AGE + "=" + Integer.MAX_VALUE)
-			        };
-			        // TODO: Content-Type
-					Resource resource = new Resource() {
-						
-						@Override
-						public long length() {
-							// TODO Auto-generated method stub
-							return 0;
-						}
-						
-						@Override
-						public InputStream getInputStream() throws IOException {
-							return classpath.openStream();
-						}
-						
-						@Override
-						public void dispose() {
-							// TODO Auto-generated method stub
-							
-						}
-					};
-					return new HttpCacheEntry(new Date(), new Date(),
+					List<Header> responseHeaders = new ArrayList<Header>();
+					if (!node.has(HTTP.DATE_HEADER)) {
+						responseHeaders.add(new BasicHeader(HTTP.DATE_HEADER,
+								DateUtils.formatDate(new Date())));
+					}
+					if (!node.has(HeaderConstants.CACHE_CONTROL)) {
+						responseHeaders.add(new BasicHeader(
+								HeaderConstants.CACHE_CONTROL,
+								HeaderConstants.CACHE_CONTROL_MAX_AGE + "="
+										+ Integer.MAX_VALUE));
+					}
+					Resource resource = new JarCacheResource(classpath);
+					Iterator<String> fieldNames = node.fieldNames();
+					while (fieldNames.hasNext()) {
+						String headerName = fieldNames.next();
+						JsonNode header = node.get(headerName);
+						// TODO: Support multiple headers with []
+						responseHeaders.add(new BasicHeader(headerName, header
+								.asText()));
+					}
+
+					return new HttpCacheEntry(
+							new Date(),
+							new Date(),
 							new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"),
-							responseHeaders, resource);
+							responseHeaders.toArray(new Header[0]), resource);
 
-				
 				}
 			}
 		}
