@@ -7,7 +7,7 @@
 	</parent>
 	<groupId>uk.org.taverna.httpclientjarcache</groupId>
 	<artifactId>httpclient-jarcache</artifactId>
-	<version>0.0.1</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>JAR cache for Apache HTTP Client</name>
 	<description>A cache provider for httpclient that provides cached resources from JAR resources</description>
 	<properties>
@@ -77,7 +77,7 @@
 		<connection>scm:git:git://github.com/myGrid/httpclient-jarcache.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/myGrid/httpclient-jarcache.git</developerConnection>
 		<url>https://github.com/myGrid/httpclient-jarcache/</url>
-	  <tag>0.0.1</tag>
+	  <tag>HEAD</tag>
   </scm>
 
 </project>
